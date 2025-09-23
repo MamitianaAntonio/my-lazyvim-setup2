@@ -6,12 +6,12 @@ return {
     require("ibl").setup({
       indent = {
         char = "┊",
-        highlight = { "NonText" },
+        highlight = { "IblIndent" },
       },
       scope = { enabled = false },
     })
 
     -- gris très sombre Catppuccin Mocha
-    vim.api.nvim_set_hl(0, "IblIndent", { fg = "#1e1e2e" })
+    vim.api.nvim_set_hl(0, "IblIndent", { fg = "#11111b" })
   end,
 }
