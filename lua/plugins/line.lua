@@ -1,92 +1,133 @@
 return {
   "nvim-lualine/lualine.nvim",
   opts = function(_, opts)
-    -- =============================
-    -- COLORS
-    -- =============================
     local colors = {
-      BG = "#16181b",
-      FG = "#c5c4c4",
-      BLUE = "#4f9cff",
-      VIOLET = "#7a3ba8",
-      RED = "#ff3344",
-      GREEN = "#00e676",
-      YELLOW = "#e8b75f",
-      CYAN = "#00bcd4",
-      ORANGE = "#ff7733",
-      MAGENTA = "#ff00ff",
-      PINK = "#ff69b4",
+      -- Base colors
+      BG = "#0a0e14",
+      BG_LIGHT = "#151a21",
+      FG = "#e6e6e6",
+      FG_DIM = "#7a8185",
+
+      -- Accent colors (more refined)
+      BLUE = "#61afef",
+      VIOLET = "#c678dd",
+      RED = "#e06c75",
+      GREEN = "#98c379",
+      YELLOW = "#e5c07b",
+      CYAN = "#56b6c2",
+      ORANGE = "#d19a66",
+      MAGENTA = "#c678dd",
+      PINK = "#ff79c6",
+
+      -- Special effects
+      NEON_BLUE = "#00d4ff",
+      NEON_PINK = "#ff006e",
+      NEON_GREEN = "#00ff88",
+      GOLD = "#ffd700",
     }
 
     -- =============================
-    -- MODE COLOR
+    -- ENHANCED ANIMATION ENGINE =============================
+    local anim = {
+      tick = 0,
+      pulse = 0,
+      pulse_direction = 1,
+      breath = 0,
+      rainbow_offset = 0,
+      wave_phase = 0,
+      glow_intensity = 0,
+      scroll_offset = 0,
+    }
+
+    -- Smoother refresh rate
+    vim.fn.timer_start(40, function()
+      anim.tick = anim.tick + 1
+
+      -- Smooth pulse (0 to 1)
+      anim.pulse = anim.pulse + (0.035 * anim.pulse_direction)
+      if anim.pulse >= 1 then anim.pulse_direction = -1 end
+      if anim.pulse <= 0 then anim.pulse_direction = 1 end
+
+      -- Breathing effect (smoother)
+      anim.breath = (math.sin(anim.tick / 40) + 1) / 2
+
+      -- Rainbow cycle
+      anim.rainbow_offset = (anim.rainbow_offset + 0.015) % 1
+
+      -- Wave phase
+      anim.wave_phase = (anim.wave_phase + 0.08) % (math.pi * 2)
+
+      -- Glow intensity (for premium effects)
+      anim.glow_intensity = (math.sin(anim.tick / 25) + 1) / 2
+
+      -- Scroll effect
+      anim.scroll_offset = (anim.scroll_offset + 0.1) % 100
+
+      require("lualine").refresh()
+    end, { ["repeat"] = -1 })
+
     -- =============================
-    local function get_mode_color()
-      local m = vim.fn.mode()
-      if m == "n" then return colors.BLUE end
-      if m == "i" then return colors.VIOLET end
-      if m == "v" or m == "V" then return colors.RED end
-      if m == "R" then return colors.ORANGE end
-      if m == "c" then return colors.GREEN end
-      if m == "t" then return colors.CYAN end
-      return colors.FG
+    -- PREMIUM COLOR UTILITIES
+    -- =============================
+    local function hex_to_rgb(hex)
+      return tonumber(hex:sub(2, 3), 16),
+          tonumber(hex:sub(4, 5), 16),
+          tonumber(hex:sub(6, 7), 16)
     end
 
-    -- =============================
-    -- COLOR BLEND
-    -- =============================
+    local function rgb_to_hex(r, g, b)
+      return string.format("#%02X%02X%02X",
+        math.min(255, math.max(0, math.floor(r))),
+        math.min(255, math.max(0, math.floor(g))),
+        math.min(255, math.max(0, math.floor(b)))
+      )
+    end
+
+    -- Smooth color blending
     local function blend(c1, c2, t)
-      local function hex_to_rgb(hex)
-        return tonumber(hex:sub(2, 3), 16),
-            tonumber(hex:sub(4, 5), 16),
-            tonumber(hex:sub(6, 7), 16)
-      end
-
-      local function lerp(a, b, t) return math.floor(a + (b - a) * t) end
-
       local r1, g1, b1 = hex_to_rgb(c1)
       local r2, g2, b2 = hex_to_rgb(c2)
 
-      return string.format(
-        "#%02X%02X%02X",
+      local function lerp(a, b, t) return a + (b - a) * t end
+
+      return rgb_to_hex(
         lerp(r1, r2, t),
         lerp(g1, g2, t),
         lerp(b1, b2, t)
       )
     end
 
-    -- =============================
-    -- GLOBAL ANIMATION ENGINE
-    -- =============================
-    local tick = 0
-    local pulse = 0
-    local direction = 1
-    local rainbow_offset = 0
-    local breath = 0
-    local wave_phase = 0
-
-    vim.fn.timer_start(50, function()
-      tick = tick + 1
-
-      -- Pulse basique
-      pulse = pulse + (0.04 * direction)
-      if pulse >= 1 then direction = -1 end
-      if pulse <= 0 then direction = 1 end
-
-      -- Respiration lente
-      breath = (math.sin(tick / 30) + 1) / 2
-
-      -- Rainbow rotation
-      rainbow_offset = (rainbow_offset + 0.02) % 1
-
-      -- Wave phase
-      wave_phase = (wave_phase + 0.1) % (math.pi * 2)
-
-      require("lualine").refresh()
-    end, { ["repeat"] = -1 })
+    -- Add glow effect to color
+    local function glow(base_color, intensity)
+      local r, g, b = hex_to_rgb(base_color)
+      local boost = 1 + (intensity * 0.3)
+      return rgb_to_hex(
+        math.min(255, r * boost),
+        math.min(255, g * boost),
+        math.min(255, b * boost)
+      )
+    end
 
     -- =============================
-    -- RAINBOW CYCLE
+    -- MODE DETECTION
+    -- =============================
+    local function get_mode_info()
+      local mode = vim.fn.mode()
+      local modes = {
+        n = { name = "NORMAL", color = colors.BLUE, icon = "󰋜" },
+        i = { name = "INSERT", color = colors.GREEN, icon = "󰏫" },
+        v = { name = "VISUAL", color = colors.VIOLET, icon = "󰈈" },
+        V = { name = "V-LINE", color = colors.VIOLET, icon = "󰈈" },
+        ["\22"] = { name = "V-BLOCK", color = colors.VIOLET, icon = "󰈈" },
+        c = { name = "COMMAND", color = colors.YELLOW, icon = "" },
+        R = { name = "REPLACE", color = colors.RED, icon = "󰛔" },
+        t = { name = "TERMINAL", color = colors.CYAN, icon = "" },
+      }
+      return modes[mode] or { name = "UNKNOWN", color = colors.FG, icon = "" }
+    end
+
+    -- =============================
+    -- RAINBOW SYSTEM
     -- =============================
     local function rainbow_color()
       local rainbow = {
@@ -97,36 +138,59 @@ return {
         colors.CYAN,
         colors.BLUE,
         colors.VIOLET,
-        colors.MAGENTA,
+        colors.PINK,
       }
-      local idx = math.floor(rainbow_offset * #rainbow) + 1
+      local idx = math.floor(anim.rainbow_offset * #rainbow) + 1
       return rainbow[idx]
     end
 
     -- =============================
-    -- SPINNERS (plus de variantes)
+    -- PREMIUM SPINNERS
     -- =============================
-    local spinner1 = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
-    local spinner2 = { "◐", "◓", "◑", "◒" }
-    local spinner3 = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
-    local spinner4 = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂" }
-    local spinner5 = { "◜", "◝", "◞", "◟" }
-    local spinner6 = { "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈" }
+    local spinners = {
+      dots = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+      arc = { "◜", "◠", "◝", "◞", "◡", "◟" },
+      circle = { "◐", "◓", "◑", "◒" },
+      dots_pulse = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" },
+      line = { "⎯", "⎼", "⎺", "⎻" },
+    }
+
+    local function get_spinner(type, speed)
+      speed = speed or 1
+      local spinner = spinners[type] or spinners.dots
+      local idx = math.floor(anim.tick * speed) % #spinner + 1
+      return spinner[idx]
+    end
 
     -- =============================
-    -- ENERGY BAR (amélioré)
+    -- PREMIUM VISUAL EFFECTS
     -- =============================
+
+    -- Smooth wave indicator
+    local function wave_indicator()
+      local blocks = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
+      local wave = ""
+      for i = 1, 6 do
+        local v = math.sin(anim.wave_phase + i * 0.6)
+        local idx = math.floor((v + 1) / 2 * (#blocks - 1)) + 1
+        wave = wave .. blocks[idx]
+      end
+      return wave
+    end
+
+    -- Premium energy bar with gradient effect
     local function energy_bar()
-      local width = 10
-      local pos = tick % width
+      local width = 8
+      local pos = (anim.tick * 0.8) % width
       local bar = ""
+
       for i = 0, width - 1 do
         local dist = math.abs(i - pos)
-        if dist == 0 then
+        if dist < 0.5 then
           bar = bar .. "█"
-        elseif dist == 1 then
+        elseif dist < 1.5 then
           bar = bar .. "▓"
-        elseif dist == 2 then
+        elseif dist < 2.5 then
           bar = bar .. "▒"
         else
           bar = bar .. "░"
@@ -135,274 +199,309 @@ return {
       return bar
     end
 
-    -- =============================
-    -- BOUNCING BAR
-    -- =============================
-    local function bouncing_bar()
-      local width = 12
-      local pos = tick % (width * 2)
-      if pos >= width then pos = width * 2 - pos end
-
-      local bar = ""
-      for i = 0, width - 1 do
-        if i == pos then
-          bar = bar .. "●"
-        else
-          bar = bar .. "○"
-        end
-      end
-      return bar
-    end
-
-    -- =============================
-    -- WAVEFORM
-    -- =============================
-    local function waveform()
-      local chars = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
-      local wave = ""
-      for i = 1, 8 do
-        local v = math.sin(wave_phase + i * 0.5)
-        local idx = math.floor((v + 1) / 2 * (#chars - 1)) + 1
-        wave = wave .. chars[idx]
-      end
-      return wave
-    end
-
-    -- =============================
-    -- SIN WAVE EFFECT (amélioré)
-    -- =============================
-    local function wave_char()
-      local v = math.sin(tick / 3)
-      if v > 0.6 then
-        return "≈"
-      elseif v > 0.2 then
-        return "~"
-      elseif v > -0.2 then
-        return "-"
-      elseif v > -0.6 then
-        return "_"
-      else
-        return "."
-      end
-    end
-
-    -- =============================
-    -- MATRIX RAIN
-    -- =============================
-    local matrix_chars = { "ﾊ", "ﾐ", "ﾋ", "ｰ", "ｳ", "ｼ", "ﾅ", "ﾓ", "ﾆ", "ｻ", "ﾜ", "ﾂ" }
-    local function matrix_rain()
-      if tick % 3 == 0 then
-        return matrix_chars[math.random(#matrix_chars)]
-      end
-      return matrix_chars[(tick % #matrix_chars) + 1]
-    end
-
-    -- =============================
-    -- RANDOM GLITCH (amélioré)
-    -- =============================
-    local glitch_chars = { "#", "%", "&", "@", "▓", "▒", "░", "█", "╳", "╱", "╲" }
-    local function glitch()
-      if tick % 35 == 0 then
-        return glitch_chars[math.random(#glitch_chars)]
-      end
-      return ""
-    end
-
-    -- =============================
-    -- PULSING DOTS
-    -- =============================
-    local function pulsing_dots()
-      local dots = { "·", "•", "●", "•" }
-      return dots[(tick % #dots) + 1]:rep(3)
-    end
-
-    -- =============================
-    -- HEARTBEAT
-    -- =============================
-    local function heartbeat()
-      local beat = math.abs(math.sin(tick / 5))
-      if beat > 0.9 then
-        return "💓"
-      elseif beat > 0.7 then
-        return "💗"
-      else
-        return "♥"
-      end
-    end
-
-    -- =============================
-    -- EQUALIZER BARS
-    -- =============================
-    local function equalizer()
+    -- Spectrum analyzer effect
+    local function spectrum()
       local bars = ""
       for i = 1, 5 do
-        local height = math.floor((math.sin(tick / 10 + i) + 1) * 4)
-        local bar_chars = { "▁", "▃", "▅", "▇", "█" }
-        bars = bars .. bar_chars[height + 1]
+        local height = math.floor((math.sin(anim.tick / 12 + i * 0.8) + 1) * 4)
+        local chars = { "▁", "▂", "▃", "▅", "▇" }
+        bars = bars .. chars[math.min(height + 1, #chars)]
       end
       return bars
     end
 
-    -- =============================
-    -- CLEAN SECTIONS
-    -- =============================
-    opts.options.component_separators = ""
-    opts.options.section_separators = ""
-    opts.sections.lualine_c = {}
-    opts.sections.lualine_x = {}
+    -- Pulsing dot indicator
+    local function pulse_dot()
+      local intensity = anim.pulse
+      if intensity > 0.8 then
+        return "●"
+      elseif intensity > 0.5 then
+        return "◉"
+      elseif intensity > 0.2 then
+        return "○"
+      else
+        return "◌"
+      end
+    end
+
+    -- Breathing separator
+    local function breathing_separator()
+      local chars = { "·", "•", "●" }
+      local idx = math.floor(anim.breath * (#chars - 1)) + 1
+      return chars[idx]
+    end
 
     -- =============================
-    -- LEFT SECTION
+    -- COMPONENT BUILDERS
     -- =============================
 
-    -- MODE CORE (avec breath)
-    table.insert(opts.sections.lualine_c, {
-      function()
-        return " " .. vim.fn.mode():upper() .. " "
-      end,
-      color = function()
-        local base = get_mode_color()
-        local dynamic = blend(base, colors.FG, breath)
-        return { fg = colors.BG, bg = dynamic, gui = "bold" }
-      end,
-    })
+    -- Premium mode indicator
+    local function mode_component()
+      return {
+        function()
+          local mode_info = get_mode_info()
+          return " " .. mode_info.icon .. " " .. mode_info.name .. " "
+        end,
+        color = function()
+          local mode_info = get_mode_info()
+          local base = mode_info.color
+          local glowing = glow(base, anim.glow_intensity)
+          return {
+            fg = colors.BG,
+            bg = blend(base, glowing, anim.breath),
+            gui = "bold"
+          }
+        end,
+        separator = { right = "" },
+      }
+    end
 
-    -- TRIPLE SPINNER COMBO
-    table.insert(opts.sections.lualine_c, {
-      function()
-        return spinner1[(tick % #spinner1) + 1]
-            .. spinner3[(tick % #spinner3) + 1]
-            .. spinner5[(tick % #spinner5) + 1]
-      end,
-      color = function()
-        return { fg = rainbow_color(), gui = "bold" }
-      end,
-    })
+    -- Premium filename with icon
+    local function filename_component()
+      return {
+        function()
+          local filename = vim.fn.expand("%:t")
+          if filename == "" then filename = "[No Name]" end
 
-    -- ENERGY BAR
-    table.insert(opts.sections.lualine_c, {
-      function() return energy_bar() end,
-      color = function()
-        return { fg = blend(colors.GREEN, colors.CYAN, pulse) }
-      end,
-    })
+          -- Get file icon (requires nvim-web-devicons)
+          local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
+          local icon = ""
+          if devicons_ok then
+            icon = devicons.get_icon(filename, vim.fn.expand("%:e"), { default = true })
+          end
 
-    -- WAVEFORM
-    table.insert(opts.sections.lualine_c, {
-      function() return waveform() end,
-      color = function()
-        return { fg = blend(colors.BLUE, colors.MAGENTA, breath) }
-      end,
-    })
+          return icon .. " " .. filename
+        end,
+        color = function()
+          local mode_info = get_mode_info()
+          return {
+            fg = blend(colors.FG, mode_info.color, anim.pulse * 0.4),
+            gui = "bold"
+          }
+        end,
+      }
+    end
 
-    -- WAVE + GLITCH + MATRIX
-    table.insert(opts.sections.lualine_c, {
-      function()
-        return wave_char() .. glitch() .. matrix_rain()
-      end,
-      color = function()
-        return { fg = blend(get_mode_color(), colors.YELLOW, pulse) }
-      end,
-    })
+    -- Git status with smooth animations
+    local function git_component()
+      return {
+        function()
+          local g = vim.b.gitsigns_status_dict
+          if not g then return "" end
 
-    -- PULSING DOTS
-    table.insert(opts.sections.lualine_c, {
-      function() return pulsing_dots() end,
-      color = function()
-        return { fg = blend(colors.CYAN, colors.PINK, breath) }
-      end,
-    })
+          local added = g.added or 0
+          local changed = g.changed or 0
+          local removed = g.removed or 0
+          local total = added + changed + removed
 
-    -- FILENAME GLOW
-    table.insert(opts.sections.lualine_c, {
-      "filename",
-      color = function()
-        return { fg = blend(colors.FG, get_mode_color(), pulse), gui = "bold" }
-      end,
-    })
+          if total == 0 then return "" end
 
-    -- HEARTBEAT
-    table.insert(opts.sections.lualine_c, {
-      function() return heartbeat() end,
-      color = function()
-        return { fg = blend(colors.RED, colors.PINK, breath) }
-      end,
-    })
+          local spinner = get_spinner("circle", 0.5)
+          return string.format(
+            "%s  +%d ~%d -%d",
+            spinner,
+            added,
+            changed,
+            removed
+          )
+        end,
+        color = function()
+          return {
+            fg = blend(colors.GREEN, colors.YELLOW, anim.pulse),
+            gui = "bold"
+          }
+        end,
+      }
+    end
 
-    -- GIT PULSE (avec plus d'effet)
-    table.insert(opts.sections.lualine_c, {
-      function()
-        local g = vim.b.gitsigns_status_dict
-        if not g then return "" end
-        local total = (g.added or 0) + (g.changed or 0) + (g.removed or 0)
-        if total == 0 then return "" end
+    -- LSP status with premium styling
+    local function lsp_component()
+      return {
+        function()
+          local clients = vim.lsp.get_clients({ bufnr = 0 })
+          if #clients == 0 then
+            return "󰌚 No LSP"
+          end
 
-        local icon = spinner2[(tick % #spinner2) + 1]
-        return string.format(" %s +%d ~%d -%d ", icon, g.added or 0, g.changed or 0, g.removed or 0)
-      end,
-      color = function()
-        return { fg = blend(colors.YELLOW, colors.RED, pulse), gui = "bold" }
-      end,
-    })
+          local spinner = get_spinner("dots_pulse", 0.3)
+          local client_names = {}
+          for _, client in ipairs(clients) do
+            table.insert(client_names, client.name)
+          end
+
+          return spinner .. " 󰒋 " .. table.concat(client_names, ", ")
+        end,
+        color = function()
+          local clients = vim.lsp.get_clients({ bufnr = 0 })
+          local base_color = #clients > 0 and colors.NEON_GREEN or colors.FG_DIM
+          return {
+            fg = glow(base_color, anim.glow_intensity * 0.5),
+            gui = "bold"
+          }
+        end,
+      }
+    end
+
+    -- Branch with rainbow effect
+    local function branch_component()
+      return {
+        function()
+          local branch = vim.b.gitsigns_head or vim.fn.FugitiveHead()
+          if not branch or branch == "" then return "" end
+          return "  " .. branch
+        end,
+        color = function()
+          return {
+            fg = glow(rainbow_color(), anim.glow_intensity * 0.3),
+            gui = "bold"
+          }
+        end,
+      }
+    end
+
+    -- File encoding with conditional display
+    local function encoding_component()
+      return {
+        function()
+          local encoding = vim.opt.fileencoding:get()
+          if encoding == "utf-8" then return "" end
+          return "󰉿 " .. encoding:upper()
+        end,
+        color = { fg = colors.FG_DIM },
+      }
+    end
+
+    -- Progress with visual indicator
+    local function progress_component()
+      return {
+        function()
+          local cur = vim.fn.line(".")
+          local total = vim.fn.line("$")
+          local percentage = math.floor(cur / total * 100)
+
+          return string.format("󰓾 %d%%%%", percentage)
+        end,
+        color = function()
+          return {
+            fg = blend(colors.FG, rainbow_color(), anim.pulse * 0.3),
+            gui = "bold"
+          }
+        end,
+      }
+    end
+
+    -- Location (line:col)
+    local function location_component()
+      return {
+        function()
+          return "󰆤 %l:%c"
+        end,
+        color = function()
+          local mode_info = get_mode_info()
+          return {
+            fg = blend(colors.FG_DIM, mode_info.color, anim.breath * 0.3)
+          }
+        end,
+      }
+    end
 
     -- =============================
-    -- RIGHT SECTION
+    -- DECORATIVE COMPONENTS
     -- =============================
 
-    -- EQUALIZER
-    table.insert(opts.sections.lualine_x, {
-      function() return equalizer() end,
-      color = function()
-        return { fg = blend(colors.GREEN, colors.YELLOW, pulse) }
-      end,
-    })
+    local function separator_wave()
+      return {
+        function() return wave_indicator() end,
+        color = function()
+          return {
+            fg = blend(colors.BLUE, colors.CYAN, anim.breath),
+          }
+        end,
+      }
+    end
 
-    -- BOUNCING BAR
-    table.insert(opts.sections.lualine_x, {
-      function() return bouncing_bar() end,
-      color = function()
-        return { fg = blend(colors.ORANGE, colors.RED, breath) }
-      end,
-    })
+    local function separator_energy()
+      return {
+        function() return energy_bar() end,
+        color = function()
+          return {
+            fg = blend(colors.NEON_GREEN, colors.NEON_BLUE, anim.pulse),
+          }
+        end,
+      }
+    end
 
-    -- LSP STATUS (avec spinner)
-    table.insert(opts.sections.lualine_x, {
-      function()
-        local clients = vim.lsp.get_clients({ bufnr = 0 })
-        if #clients == 0 then return " No LSP " end
-        local spin = spinner4[(tick % #spinner4) + 1]
-        return spin .. "  " .. clients[1].name .. " "
-      end,
-      color = function()
-        return { fg = blend(colors.GREEN, colors.CYAN, pulse), gui = "bold" }
-      end,
-    })
+    local function separator_spectrum()
+      return {
+        function() return spectrum() end,
+        color = function()
+          return {
+            fg = blend(colors.VIOLET, colors.PINK, anim.pulse),
+          }
+        end,
+      }
+    end
 
-    -- BRANCH ENERGY (avec rainbow)
-    table.insert(opts.sections.lualine_x, {
-      "branch",
-      icon = " ",
-      color = function()
-        return { fg = rainbow_color(), gui = "bold" }
-      end,
-    })
+    local function separator_pulse()
+      return {
+        function()
+          return pulse_dot() .. breathing_separator() .. pulse_dot()
+        end,
+        color = function()
+          local mode_info = get_mode_info()
+          return {
+            fg = blend(mode_info.color, colors.FG_DIM, anim.pulse),
+          }
+        end,
+      }
+    end
 
-    -- ROTATING SPINNER
-    table.insert(opts.sections.lualine_x, {
-      function()
-        return spinner6[(tick % #spinner6) + 1]
-      end,
-      color = function()
-        return { fg = blend(colors.VIOLET, colors.BLUE, breath), gui = "bold" }
-      end,
-    })
+    -- =============================
+    -- CONFIGURATION
+    -- =============================
 
-    -- PROGRESS (avec glow)
-    table.insert(opts.sections.lualine_x, {
-      "progress",
-      color = function()
-        return { fg = blend(colors.FG, rainbow_color(), pulse) }
-      end,
-    })
+    opts.options = {
+      theme = "auto",
+      component_separators = { left = "", right = "" },
+      section_separators = { left = "", right = "" },
+      globalstatus = true,
+      refresh = {
+        statusline = 40,
+      },
+    }
+
+    -- Clear default sections
+    opts.sections = {
+      lualine_a = {},
+      lualine_b = {},
+      lualine_c = {},
+      lualine_x = {},
+      lualine_y = {},
+      lualine_z = {},
+    }
+
+    -- =============================
+    -- LEFT SIDE (Primary info)
+    -- =============================
+
+    table.insert(opts.sections.lualine_a, mode_component())
+    table.insert(opts.sections.lualine_b, separator_wave())
+    table.insert(opts.sections.lualine_b, filename_component())
+    table.insert(opts.sections.lualine_b, separator_pulse())
+    table.insert(opts.sections.lualine_c, git_component())
+
+    -- =============================
+    -- RIGHT SIDE (Status info)
+    -- =============================
+
+    table.insert(opts.sections.lualine_x, lsp_component())
+    table.insert(opts.sections.lualine_x, separator_energy())
+    table.insert(opts.sections.lualine_y, branch_component())
+    table.insert(opts.sections.lualine_y, separator_spectrum())
+    table.insert(opts.sections.lualine_y, encoding_component())
+    table.insert(opts.sections.lualine_z, location_component())
+    table.insert(opts.sections.lualine_z, progress_component())
+
+    return opts
   end,
 }
