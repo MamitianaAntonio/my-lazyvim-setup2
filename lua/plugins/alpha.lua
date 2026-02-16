@@ -48,7 +48,6 @@ return {
       dashboard.button("f", "  🔍 Find File", ":Telescope find_files <CR>"),
       dashboard.button("n", "  ✨ New File", ":ene <BAR> startinsert <CR>"),
       dashboard.button("r", "  🕘 Recent Files", ":Telescope oldfiles <CR>"),
-      dashboard.button("p", "  📙 Recent Project", ":Telescope project<CR>"),
       dashboard.button("g", "  🌍 Find Text", ":Telescope live_grep <CR>"),
       dashboard.button("c", "  ⚙ Config", ":e $MYVIMRC <CR>"),
       dashboard.button("l", "  📦 Lazy", ":Lazy<CR>"),
