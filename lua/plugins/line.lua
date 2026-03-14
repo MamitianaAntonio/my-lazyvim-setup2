@@ -1,246 +1,335 @@
 return {
   "nvim-lualine/lualine.nvim",
   opts = function(_, opts)
+    -- all manjaro custom colors
     local c = {
-      bg     = "#1e2127",
-      bg2    = "#282c34",
-      fg     = "#abb2bf",
-      dim    = "#5c6370",
-      blue   = "#61afef",
-      green  = "#98c379",
-      yellow = "#e5c07b",
-      red    = "#e06c75",
-      violet = "#c678dd",
-      cyan   = "#56b6c2",
-      orange = "#d19a66",
+      bg = "#0d1117",
+      bg2 = "#141b22",
+      bg3 = "#1c2733",
+      fg = "#cdd9e5",
+      dim = "#4a6070",
+      green = "#34be5b",
+      green2 = "#26a447",
+      teal = "#2eb398",
+      cyan = "#39c5cf",
+      blue = "#35a5c8",
+      violet = "#9b7fd4",
+      red = "#e05c7a",
+      orange = "#e5b567",
+      yellow = "#d4a72c",
     }
 
-    local circle = { "◐", "◓", "◑", "◒" }
-    local tick = 0
+    -- 1. Spinning arc (LSP activity)
+    local arcs = { "◜", "◠", "◝", "◞", "◡", "◟" }
+    -- 2. Bouncing dots (macro rec)
+    local dots = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
+    -- 3. Manjaro leaf pulse (mode)
+    local leaves = { "", "", "", "", "", "", "", "" }
+    -- 4. Wave bar (progress)
+    local bars = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂" }
 
-    vim.fn.timer_start(120, function()
-      tick = (tick + 1) % #circle
+    local tick = 0
+    local tick2 = 0
+    local tick3 = 0
+
+    -- Fast tick: arcs + dots (80ms)
+    vim.fn.timer_start(80, function()
+      tick = (tick + 1) % #arcs
       require("lualine").refresh()
     end, { ["repeat"] = -1 })
 
-    local function spinner()
-      return circle[tick + 1]
+    -- Medium tick: leaves (200ms)
+    vim.fn.timer_start(200, function()
+      tick2 = (tick2 + 1) % #leaves
+    end, { ["repeat"] = -1 })
+
+    -- Slow tick: wave bar (130ms)
+    vim.fn.timer_start(130, function()
+      tick3 = (tick3 + 1) % #bars
+    end, { ["repeat"] = -1 })
+
+    local function arc_spin()
+      return arcs[tick + 1]
+    end
+    local function dot_spin()
+      return dots[tick + 1]
+    end
+    local function leaf_pulse()
+      return leaves[tick2 + 1]
+    end
+    local function wave_bar()
+      return bars[tick3 + 1]
     end
 
-    -- Mode
+    -- ── Mode map ─────────────────────────────────────────
     local modes = {
-      n       = { label = "󰋜 NORMAL", color = c.blue },
-      i       = { label = "󰏫 INSERT", color = c.green },
-      v       = { label = "󰈈 VISUAL", color = c.violet },
-      V       = { label = "󰈈 V-LINE", color = c.violet },
-      ["\22"] = { label = "󰈈 V-BLOCK", color = c.violet },
-      c       = { label = " COMMAND", color = c.yellow },
-      R       = { label = "󰛔 REPLACE", color = c.red },
-      t       = { label = " TERMINAL", color = c.cyan },
+      n = { label = "NORMAL", icon = "󰋜", color = c.green },
+      i = { label = "INSERT", icon = "󰏫", color = c.cyan },
+      v = { label = "VISUAL", icon = "󰈈", color = c.violet },
+      V = { label = "V·LINE", icon = "󰈈", color = c.violet },
+      ["\22"] = { label = "V·BLOCK", icon = "󰈈", color = c.violet },
+      c = { label = "COMMAND", icon = "", color = c.yellow },
+      R = { label = "REPLACE", icon = "󰛔", color = c.red },
+      t = { label = "TERMINAL", icon = "", color = c.teal },
+      s = { label = "SELECT", icon = "󰒅", color = c.orange },
     }
 
     local function mode_info()
-      return modes[vim.fn.mode()] or { label = " ??????", color = c.fg }
+      return modes[vim.fn.mode()] or { label = "??????", icon = "󰘌", color = c.dim }
     end
 
-    -- 💎 Macro recording indicator
+    -- ── Components ───────────────────────────────────────
+
+    -- Animated mode pill: leaf + icon + label
+    local function mode_component()
+      local m = mode_info()
+      return " " .. leaf_pulse() .. " " .. m.icon .. " " .. m.label .. " "
+    end
+
+    -- Macro: animated dot spinner + reg name
     local function macro_recording()
       local reg = vim.fn.reg_recording()
-      if reg == "" then return "" end
-      return "󰑋 REC @" .. reg
-    end
-
-    -- 💎 Word & char count
-    local function word_count()
-      local mode = vim.fn.mode()
-      local wc = vim.fn.wordcount()
-      if mode == "v" or mode == "V" or mode == "\22" then
-        if wc.visual_words then
-          return "󰯂 " .. wc.visual_words .. "w sel"
-        end
+      if reg == "" then
+        return ""
       end
-      return "󰯂 " .. (wc.words or 0) .. "w"
+      return dot_spin() .. " REC @" .. reg
     end
 
-    -- 💎 Search count
+    -- Search count
     local function search_count()
-      if vim.v.hlsearch == 0 then return "" end
-      local ok, result = pcall(vim.fn.searchcount, { maxcount = 999, timeout = 50 })
-      if not ok or result.total == 0 then return "" end
-      return string.format("󰍉 %d/%d", result.current, result.total)
+      if vim.v.hlsearch == 0 then
+        return ""
+      end
+      local ok, r = pcall(vim.fn.searchcount, { maxcount = 999, timeout = 50 })
+      if not ok or r.total == 0 then
+        return ""
+      end
+      return string.format("󰍉 %d/%d", r.current, r.total)
     end
 
-    -- 💎 Mixed indent warning
+    -- Word count
+    local function word_count()
+      local wc = vim.fn.wordcount()
+      local mode = vim.fn.mode()
+      if (mode == "v" or mode == "V" or mode == "\22") and wc.visual_words then
+        return "󱀍 " .. wc.visual_words .. "w"
+      end
+      return "󱀍 " .. (wc.words or 0) .. "w"
+    end
+
+    -- Mixed indent
     local function mixed_indent()
       local lines = vim.api.nvim_buf_get_lines(0, 0, 100, false)
-      local has_space, has_tab = false, false
-      for _, line in ipairs(lines) do
-        if line:match("^ ") then has_space = true end
-        if line:match("^\t") then has_tab = true end
+      local sp, tb = false, false
+      for _, l in ipairs(lines) do
+        if l:match("^ ") then
+          sp = true
+        end
+        if l:match("^\t") then
+          tb = true
+        end
       end
-      if has_space and has_tab then return "󰅖 mixed" end
-      return ""
+      return (sp and tb) and "󰅖 mixed" or ""
     end
 
-    -- 💎 Git blame (current line)
+    -- Git blame
     local function git_blame()
       local info = vim.b.gitsigns_blame_line_dict
-      if not info then return "" end
+      if not info then
+        return ""
+      end
       local author = info.author or "?"
-      if author == "Not Committed Yet" then return "󰜄 uncommitted" end
-      if #author > 15 then author = author:sub(1, 12) .. "…" end
-      local date = info.author_time
-          and os.date("%d %b", tonumber(info.author_time))
-          or ""
+      if author == "Not Committed Yet" then
+        return "󰜄 uncommitted"
+      end
+      if #author > 14 then
+        author = author:sub(1, 11) .. "…"
+      end
+      local date = info.author_time and os.date("%d %b", tonumber(info.author_time)) or ""
       return "󰊢 " .. author .. " · " .. date
     end
 
-    -- 💎 Python venv
+    -- Python venv
     local function venv()
       local v = os.getenv("VIRTUAL_ENV") or os.getenv("CONDA_DEFAULT_ENV")
-      if not v then return "" end
+      if not v then
+        return ""
+      end
       return " " .. (v:match("([^/]+)$") or v)
     end
 
-    -- 💎 File size
+    -- File size
     local function file_size()
-      local size = vim.fn.getfsize(vim.fn.expand("%:p"))
-      if size <= 0 then return "" end
-      local units = { "B", "K", "M", "G" }
+      local sz = vim.fn.getfsize(vim.fn.expand("%:p"))
+      if sz <= 0 then
+        return ""
+      end
+      local u = { "B", "K", "M", "G" }
       local i = 1
-      while size >= 1024 and i < #units do
-        size = size / 1024
+      while sz >= 1024 and i < #u do
+        sz = sz / 1024
         i = i + 1
       end
-      return string.format("󰋊 %.1f%s", size, units[i])
+      return string.format("󰋊 %.1f%s", sz, u[i])
     end
 
-    -- 💎 CWD folder name
+    -- CWD
     local function cwd_name()
       local cwd = vim.fn.getcwd()
       return "󱉭 " .. (cwd:match("([^/]+)$") or cwd)
     end
 
-    -- 💎 Lazy.nvim startup time
-    local startuptime_cache = nil
+    -- Startup time (cached)
+    local _startup = nil
     local function startuptime()
-      if startuptime_cache then return startuptime_cache end
-      local ok, lazy = pcall(require, "lazy")
-      if ok and lazy.stats then
-        local s = lazy.stats()
-        startuptime_cache = string.format("󱐋 %.0fms", s.startuptime)
-      else
-        startuptime_cache = ""
+      if _startup then
+        return _startup
       end
-      return startuptime_cache
+      local ok, lazy = pcall(require, "lazy")
+      _startup = (ok and lazy.stats) and string.format("󱐋 %.0fms", lazy.stats().startuptime) or ""
+      return _startup
     end
 
-    -- 💎 Copilot / AI status
+    -- Copilot
     local function copilot_status()
       local ok, cp = pcall(require, "copilot.client")
-      if not ok then return "" end
-      if cp.is_disabled() then return "󰅖 copilot off" end
-      return " copilot"
+      if not ok then
+        return ""
+      end
+      return cp.is_disabled() and "󰅖 copilot" or " copilot"
     end
 
-    -- Sections
-    opts.options = {
-      theme                = "onedark",
-      globalstatus         = true,
-      component_separators = { left = "│", right = "│" },
-      section_separators   = { left = "", right = "" },
-      refresh              = { statusline = 120 },
+    -- Animated LSP: arc spinner + client names
+    local function lsp_status()
+      local clients = vim.lsp.get_clients({ bufnr = 0 })
+      if #clients == 0 then
+        return "󰌚 no lsp"
+      end
+      local names = {}
+      for _, cl in ipairs(clients) do
+        table.insert(names, cl.name)
+      end
+      return arc_spin() .. " 󰒋 " .. table.concat(names, " · ")
+    end
+
+    -- Animated progress: wave bar + percentage
+    local function animated_progress()
+      local cur = vim.fn.line(".")
+      local total = vim.fn.line("$")
+      if total == 0 then
+        return ""
+      end
+      local pct = math.floor(cur / total * 100)
+      return wave_bar() .. " " .. pct .. "%%"
+    end
+
+    -- ── Theme ────────────────────────────────────────────
+    local manjaro_theme = {
+      normal = {
+        a = { fg = c.bg, bg = c.green, gui = "bold" },
+        b = { fg = c.fg, bg = c.bg3 },
+        c = { fg = c.fg, bg = c.bg2 },
+      },
+      insert = { a = { fg = c.bg, bg = c.cyan, gui = "bold" } },
+      visual = { a = { fg = c.bg, bg = c.violet, gui = "bold" } },
+      replace = { a = { fg = c.bg, bg = c.red, gui = "bold" } },
+      command = { a = { fg = c.bg, bg = c.yellow, gui = "bold" } },
+      terminal = { a = { fg = c.bg, bg = c.teal, gui = "bold" } },
+      inactive = {
+        a = { fg = c.dim, bg = c.bg },
+        b = { fg = c.dim, bg = c.bg },
+        c = { fg = c.dim, bg = c.bg },
+      },
     }
 
+    -- ── Options ──────────────────────────────────────────
+    opts.options = {
+      theme = manjaro_theme,
+      globalstatus = true,
+      component_separators = { left = "│", right = "│" },
+      section_separators = { left = "", right = "" },
+      refresh = { statusline = 80 },
+    }
+
+    -- ── Sections ─────────────────────────────────────────
     opts.sections = {
       lualine_a = {
+        -- Animated mode pill
         {
-          function() return " " .. mode_info().label .. " " end,
+          mode_component,
           color = function()
             return { fg = c.bg, bg = mode_info().color, gui = "bold" }
           end,
           separator = { right = "" },
           padding = 0,
         },
-        -- 💎 Macro recording (red pill, only when active)
+        -- Macro recording (only when active, animated)
         {
           macro_recording,
           color = { fg = c.bg, bg = c.red, gui = "bold" },
-          cond = function() return vim.fn.reg_recording() ~= "" end,
+          cond = function()
+            return vim.fn.reg_recording() ~= ""
+          end,
           separator = { right = "" },
           padding = { left = 1, right = 1 },
         },
       },
 
       lualine_b = {
-        -- CWD
-        { cwd_name, color = { fg = c.orange, bg = c.bg2, gui = "bold" } },
-        -- Branch
-        { "branch", icon = " ",                                         color = { fg = c.violet, bg = c.bg2, gui = "bold" } },
-        -- Diff
+        { cwd_name, color = { fg = c.green, bg = c.bg3, gui = "bold" } },
+        {
+          "branch",
+          icon = " ",
+          color = { fg = c.violet, bg = c.bg3, gui = "bold" },
+        },
         {
           "diff",
           symbols = { added = " ", modified = "󰝤 ", removed = " " },
           diff_color = {
-            added    = { fg = c.green },
+            added = { fg = c.green },
             modified = { fg = c.yellow },
-            removed  = { fg = c.red },
+            removed = { fg = c.red },
           },
           colored = true,
         },
       },
 
       lualine_c = {
-        -- Filename
         {
           "filename",
           path = 1,
           symbols = {
             modified = " ●",
             readonly = " 󰌾",
-            unnamed  = " 󰡯 [no name]",
-            newfile  = " 󰎔 [new]",
+            unnamed = " 󰡯 [no name]",
+            newfile = " 󰎔 [new]",
           },
           color = { fg = c.fg, gui = "bold" },
         },
-        -- File size
         { file_size, color = { fg = c.dim } },
-        -- 💎 Git blame inline
         { git_blame, color = { fg = c.dim, gui = "italic" } },
       },
 
-      -- ── Right ─────────────────────────────────────────────
       lualine_x = {
-        -- 💎 Search count
-        { search_count,   color = { fg = c.yellow, gui = "bold" } },
-        -- 💎 Word count
-        { word_count,     color = { fg = c.dim } },
-        -- 💎 Mixed indent
-        { mixed_indent,   color = { fg = c.orange, gui = "bold" } },
-        -- 💎 Copilot
-        { copilot_status, color = { fg = c.cyan, gui = "bold" } },
-        -- Diagnostics
+        { search_count, color = { fg = c.yellow, gui = "bold" } },
+        { word_count, color = { fg = c.dim } },
+        { mixed_indent, color = { fg = c.orange, gui = "bold" } },
+        { copilot_status, color = { fg = c.teal, gui = "bold" } },
         {
           "diagnostics",
           sources = { "nvim_lsp" },
           symbols = { error = " ", warn = " ", info = " ", hint = "󰌵 " },
           diagnostics_color = {
             error = { fg = c.red },
-            warn  = { fg = c.yellow },
-            info  = { fg = c.blue },
-            hint  = { fg = c.cyan },
+            warn = { fg = c.yellow },
+            info = { fg = c.blue },
+            hint = { fg = c.cyan },
           },
           colored = true,
         },
-        -- LSP + circle spinner
+        -- Animated LSP spinner
         {
-          function()
-            local clients = vim.lsp.get_clients({ bufnr = 0 })
-            if #clients == 0 then return "󰌚 no lsp" end
-            local names = {}
-            for _, cl in ipairs(clients) do table.insert(names, cl.name) end
-            return spinner() .. " 󰒋 " .. table.concat(names, ", ")
-          end,
+          lsp_status,
           color = function()
             local ok = #vim.lsp.get_clients({ bufnr = 0 }) > 0
             return { fg = ok and c.green or c.dim, gui = "bold" }
@@ -249,16 +338,13 @@ return {
       },
 
       lualine_y = {
-        -- 💎 Python venv
         {
           venv,
           color = { fg = c.yellow, gui = "bold" },
           cond = function()
-            return os.getenv("VIRTUAL_ENV") ~= nil
-                or os.getenv("CONDA_DEFAULT_ENV") ~= nil
+            return os.getenv("VIRTUAL_ENV") ~= nil or os.getenv("CONDA_DEFAULT_ENV") ~= nil
           end,
         },
-        -- Indent style
         {
           function()
             local indent = vim.opt.expandtab:get() and "󰌒 spc" or "󰌒 tab"
@@ -266,23 +352,18 @@ return {
           end,
           color = { fg = c.dim },
         },
-        -- Filetype
-        { "filetype",  icon_only = false,     color = { fg = c.cyan, gui = "bold" } },
-        -- Encoding (skip utf-8)
+        { "filetype", icon_only = false, color = { fg = c.cyan, gui = "bold" } },
         {
           "encoding",
           fmt = function(s)
-            if s == "utf-8" then return "" end
-            return "󰉿 " .. s:upper()
+            return s == "utf-8" and "" or "󰉿 " .. s:upper()
           end,
           color = { fg = c.dim },
         },
-        -- 💎 Startup time
         { startuptime, color = { fg = c.dim } },
       },
 
       lualine_z = {
-        -- Location
         {
           "location",
           icon = "󰆤",
@@ -292,10 +373,9 @@ return {
           separator = { left = "" },
           padding = { left = 1, right = 1 },
         },
-        -- Progress
+        -- Animated wave progress
         {
-          "progress",
-          icon = "󰓾",
+          animated_progress,
           color = function()
             return { fg = c.bg, bg = mode_info().color, gui = "bold" }
           end,
@@ -304,7 +384,6 @@ return {
       },
     }
 
-    -- Inactive windows
     opts.inactive_sections = {
       lualine_a = {},
       lualine_b = {},
